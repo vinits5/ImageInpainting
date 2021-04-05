@@ -192,7 +192,9 @@ class ImageGenerator(nn.Module):
             spectral_norm(nn.ConvTranspose2d(ngf * 1 * 2, 3, kernel_size=4, stride=2, padding=1), use),
             nn.Tanh(),
         )
-        self.myattention = MyAttention(opt)
+        self.use_attention = opt.use_attention
+        if self.use_attention:
+            self.myattention = MyAttention(opt)
 
     def forward(self, x, lbp, mask, second=False):
         dn11 = self.dn11(torch.cat([x, lbp, 1 - mask], 1))
@@ -208,7 +210,8 @@ class ImageGenerator(nn.Module):
         up51 = self.up51(torch.cat([up61, dn51], 1))
         up41 = self.up41(torch.cat([up51, dn41], 1))
         up31 = self.up31(torch.cat([up41, dn31], 1))
-        up31 = self.myattention(up31[:, :256, :, :], up31[:, 256:, :, :], mask)
+        if self.use_attention:
+            up31 = self.myattention(up31[:, :256, :, :], up31[:, 256:, :, :], mask)
         up31 = self.up311(up31)
         up21 = self.up21(torch.cat([up31, dn21], 1))
         output = self.up11(torch.cat([up21, dn11], 1)) + x
