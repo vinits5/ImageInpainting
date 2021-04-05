@@ -64,7 +64,7 @@ class BaseModel():
             # if name in ['D', 'D2']:
             #     continue
             if isinstance(name, str):
-                save_filename = '%s_net_%s.pth' % (which_epoch, name)
+                save_filename = '%s_net_%s.pth' % (str(which_epoch), name)
                 save_path = os.path.join(self.save_dir, save_filename)
                 net = getattr(self, 'net' + name)
 
@@ -74,6 +74,13 @@ class BaseModel():
                     net.cuda(self.opt.device)
                 else:
                     torch.save(net.cpu().state_dict(), save_path)
+                
+                if which_epoch>1:
+                    cmd = f"gsutil -m cp -r {save_path} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_eccv20_aim/{self.save_dir.split('/')[1]}"
+                    os.system(cmd)   
+        if which_epoch == 1:
+            cmd = f"gsutil -m cp -r {self.save_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_eccv20_aim/"
+            os.system(cmd)
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         key = keys[i]

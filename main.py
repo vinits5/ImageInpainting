@@ -1,3 +1,5 @@
+# gsutil -m cp -r gs://experiments_logs/gmm/TOPS/gl/dataset/generator_layers_v2.1_categories.record /content/
+
 import cv2
 import os
 import copy
@@ -17,35 +19,25 @@ from model import MyModel
 opt = MyOptions().parse()
 
 
-class MyDataset(torch.utils.data.Dataset):
-    def __init__(self, opt):
-        self.opt = opt
-        self.img_flist = sorted(os.listdir(self.opt.data_root))
-        self.mask_flist = sorted(os.listdir(self.opt.mask_root))
+import cv2
+import os
+import copy
+import random
+import argparse
+import torch
+import torch.nn.functional as F
+import numpy as np
+import tensorflow as tf
+import torch.utils.data
+import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+# from skimage.measure import compare_ssim, compare_psnr
 
+class Preprocess:
+    def __init__(self):
         transform_list = [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
         self.transform = transforms.Compose(transform_list)
-
-    def __getitem__(self, index):
-        fname = self.img_flist[index]
-        I_i = cv2.imread(self.opt.data_root + fname)
-        I_g = copy.deepcopy(I_i)
-        L_i = self.load_lbp(copy.deepcopy(I_i))
-        L_g = copy.deepcopy(L_i)
-
-        I_i = self.transform(I_i)
-        I_g = self.transform(I_g)
-        L_i = self.transform(L_i)
-        L_i = L_i[0, :, :].view(1, 256, 256)
-        L_g = self.transform(L_g)
-        L_g = L_g[0, :, :].view(1, 256, 256)
-
-        mask = Image.open(self.opt.mask_root + self.mask_flist[index])
-        mask = transforms.ToTensor()(mask)
-        return {'I_i': I_i, 'I_g': I_g, 'M': mask, 'L_i': L_i, 'L_g': L_g, 'fname': fname}
-
-    def __len__(self):
-        return len(self.img_flist)
 
     def get_pixel(self, img, center, x, y):
         new_value = 0
@@ -89,25 +81,41 @@ class MyDataset(torch.utils.data.Dataset):
                 img_lbp[i, j, :] = self.lbp_calculated_pixel(img_gray, i, j)
         return img_lbp
 
+    def __call__(self, batch_image, batch_mask):
+        batch_image = (batch_image+1)*0.5
+        batch_image = tf.image.resize_with_pad(batch_image, 256, 256)
+        batch_mask = tf.image.resize_with_pad(batch_mask, 256, 256)
 
-class MyDataLoader():
-    def __init__(self, opt):
-        self.opt = opt
-        self.dataset = MyDataset(opt)
+        data = {'I_i': [], 'I_g': [], 'M': [], 'L_i': [], 'L_g': []}
+        for image, mask in zip(batch_image, batch_mask):
+            # I_i = (image.numpy()+1)*0.5
+            I_i = image.numpy()
+            mask = mask.numpy()
+            
+            I_i = np.array(I_i*255, dtype=np.uint8)
+            I_g = copy.deepcopy(I_i)
+            L_i = self.load_lbp(copy.deepcopy(I_i))
+            L_g = copy.deepcopy(L_i)
 
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=opt.batchSize,
-            num_workers=int(opt.nThreads))
+            I_i = self.transform(I_i)
+            I_g = self.transform(I_g)
+            L_i = self.transform(L_i)
+            L_i = L_i[0, :, :].view(1, 256, 256)
+            L_g = self.transform(L_g)
+            L_g = L_g[0, :, :].view(1, 256, 256)
 
-    def __len__(self):
-        return min(len(self.dataset), self.opt.max_dataset_size)
-
-    def __iter__(self):
-        for i, data in enumerate(self.dataloader):
-            if i * self.opt.batchSize >= self.opt.max_dataset_size:
-                break
-            yield data
+            mask = transforms.ToTensor()(mask)
+            data['I_i'].append(I_i.unsqueeze(0))
+            data['I_g'].append(I_g.unsqueeze(0))
+            data['L_i'].append(L_i.unsqueeze(0))
+            data['L_g'].append(L_g.unsqueeze(0))
+            data['M'].append(mask.unsqueeze(0))
+        data['I_i'] = torch.cat(data['I_i'])
+        data['I_g'] = torch.cat(data['I_g'])
+        data['L_i'] = torch.cat(data['L_i'])
+        data['L_g'] = torch.cat(data['L_g'])
+        data['M'] = torch.cat(data['M'])
+        return data
 
 
 def postprocess(img):
@@ -135,50 +143,67 @@ def metrics(real, fake):
 def train():
     opt.device = 'cuda:0'
 
-    opt.data_root = 'demo/input/'   # The location of your training data
-    opt.mask_root = 'demo/mask/'    # The location of your training data mask
-    train_set = MyDataLoader(opt)
+    if not os.path.exists(opt.checkpoints_dir): os.mkdir(opt.checkpoints_dir)
 
-    opt.data_root = 'demo/input/'   # The location of your validation data
-    opt.mask_root = 'demo/mask/'    # The location of your validation data mask
-    val_set = MyDataLoader(opt)
+    from dataset_tfrecord import define_dataset
+    tfrecord_path = "/content/generator_layers_v2.1_categories.record"
+    batch_size = opt.batchSize
+    trainset, trainset_length = define_dataset(tfrecord_path, batch_size, train=True)
+    valset, valset_length = define_dataset(tfrecord_path, batch_size, train=False)
 
     model = MyModel()
     model.initialize(opt)
+    dpp = Preprocess()      # data pre-process (dpp)
 
-    print('Train/Val with %d/%d' % (len(train_set), len(val_set)))
+    print('Train/Val with %d/%d' % (trainset_length, valset_length))
     for epoch in range(1, 1000):
         print('Epoch: %d' % epoch)
+        
+        train_iterator = iter(trainset)
+        num_iterations = int(trainset_length/batch_size)
+
         epoch_iter = 0
         losses_G, ssim, psnr, mae = [], [], [], []
-        for i, data in enumerate(train_set):
+        for i in range(num_iterations):
             epoch_iter += opt.batchSize
-            model.set_input(data)
-            I_g, I_o, loss_G = model.optimize_parameters()
-            s, p, m = metrics(I_g, I_o)
-            ssim.append(s)
-            psnr.append(p)
-            mae.append(m)
-            losses_G.append(loss_G.detach().item())
-            print('Tra (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
-                  (epoch_iter, len(train_set), np.mean(losses_G), np.mean(ssim), np.mean(psnr), np.mean(mae)), end='\r')
-            if epoch_iter == len(train_set):
-                val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
-                with torch.no_grad():
-                    for i, data in enumerate(val_set):
-                        fname = data['fname'][0]
-                        model.set_input(data)
-                        I_g, I_o, val_loss_G = model.optimize_parameters(val=True)
-                        val_s, val_p, val_m = metrics(I_g, I_o)
-                        val_ssim.append(val_s)
-                        val_psnr.append(val_p)
-                        val_mae.append(val_m)
-                        val_losses_G.append(val_loss_G.item())
-                        if i+1 <= 200:
-                            cv2.imwrite('./demo/output/' + fname[:-4] + '.png', postprocess(I_o).numpy()[0])
-                    print('Val (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
-                          (epoch_iter, len(train_set), np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)))
-                losses_G, ssim, psnr, mae = [], [], [], []
+
+            data, model_inputs = next(train_iterator)
+            inpaint_region = data["inpaint_region"]
+
+            person_cloth = data["person_cloth"]
+            # warped_cloth_input = model_inputs["warped_cloth"]     # Not using masked cloth. (person_cloth*inpaint_region)
+
+            data = dpp(person_cloth, inpaint_region)
+            try:
+                model.set_input(data)
+                I_g, I_o, loss_G = model.optimize_parameters()
+                s, p, m = metrics(I_g, I_o)
+                ssim.append(s)
+                psnr.append(p)
+                mae.append(m)
+                losses_G.append(loss_G.detach().item())
+                if i % 100 == 0:
+                    print('Tra (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
+                        (epoch_iter, trainset_length, np.mean(losses_G), np.mean(ssim), np.mean(psnr), np.mean(mae)))#, end='\r')
+                if epoch_iter == trainset_length:
+                    # val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
+                    # with torch.no_grad():
+                    #     for i, data in enumerate(val_set):
+                    #         fname = data['fname'][0]
+                    #         model.set_input(data)
+                    #         I_g, I_o, val_loss_G = model.optimize_parameters(val=True)
+                    #         val_s, val_p, val_m = metrics(I_g, I_o)
+                    #         val_ssim.append(val_s)
+                    #         val_psnr.append(val_p)
+                    #         val_mae.append(val_m)
+                    #         val_losses_G.append(val_loss_G.item())
+                    #         if i+1 <= 200:
+                    #             cv2.imwrite('./demo/output/' + fname[:-4] + '.png', postprocess(I_o).numpy()[0])
+                    #     print('Val (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
+                    #         (epoch_iter, len(train_set), np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)))
+                    losses_G, ssim, psnr, mae = [], [], [], []
+            except:
+                pass
         model.save_networks('Model_weights')
 
 
@@ -192,7 +217,6 @@ def test():
     model = MyModel()
     model.initialize(opt)
     model.load_networks('places_irregular')     # For irregular mask inpainting
-    # model.load_networks('celebahq_center')    # For centering mask inpainting, i.e., 120*120 hole in 256*256 input
 
     val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
     with torch.no_grad():

@@ -18,11 +18,12 @@ class MyAttentionFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, generated, known, mask, device):
-        k = 2
-        ctx.k = k
-
         ctx.flag = F.interpolate(mask.clone(), (32, 32)).view(1, -1).to(device)
 
+        if torch.sum(ctx.flag==1) == 1: k=1
+        else: k = 2
+        ctx.k = k
+        
         patches_all = MyUnfold(generated, 1, 1)
         patches = patches_all[ctx.flag == 1]
         patches = patches.view(1, patches.size(0), -1)

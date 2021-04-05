@@ -18,7 +18,7 @@ class BaseOptions():
         parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
         parser.add_argument('--dataset_mode', type=str, default='aligned', help='chooses how datasets are loaded. [aligned | aligned_resized | single]')
         parser.add_argument('--nThreads', default=8, type=int, help='# threads for loading data')
-        parser.add_argument('--checkpoints_dir', type=str, default='./weights', help='models are saved here')
+        parser.add_argument('--checkpoints_dir', type=str, default='./exp_lbp_v2_wo_attn', help='models are saved here')
         parser.add_argument('--norm', type=str, default='instance', help='[instance|batch|switchable] normalization')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
 
@@ -26,9 +26,9 @@ class BaseOptions():
         parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width]')
         parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
         parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal|xavier|kaiming|orthogonal]')
-        parser.add_argument('--mask_type', type=str, default='center',
+        parser.add_argument('--mask_type', type=str, default='random',
                             help='the type of mask you want to apply, \'center\' or \'random\'')
-        parser.add_argument('--mask_sub_type', type=str, default='rect',
+        parser.add_argument('--mask_sub_type', type=str, default='random',
                             help='the type of mask you want to apply, \'rect \' or \'fractal \' or \'island \'')
         parser.add_argument('--lambda_A', type=int, default=100, help='weight on L1 term in objective')
         parser.add_argument('--overlap', type=int, default=4, help='the overlap for center mask')
