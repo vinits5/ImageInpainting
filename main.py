@@ -204,7 +204,7 @@ def train():
                     losses_G, ssim, psnr, mae = [], [], [], []
             except:
                 pass
-        model.save_networks('Model_weights')
+        model.save_networks(epoch)
 
 
 def test():
