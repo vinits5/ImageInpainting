@@ -115,6 +115,8 @@ class ImageGenerator(nn.Module):
         super(ImageGenerator, self).__init__()
         use = False
         ngf = 64
+        self.use_attention = opt.use_attention
+
         self.dn11 = nn.Sequential(
             spectral_norm(nn.Conv2d(5, ngf * 1, kernel_size=4, stride=2, padding=1), use),
         )
@@ -178,10 +180,16 @@ class ImageGenerator(nn.Module):
         self.up31 = nn.Sequential(
             nn.ReLU(True),
         )
-        self.up311 = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(ngf * 4 * 3, ngf * 2, kernel_size=4, stride=2, padding=1), use),
-            nn.InstanceNorm2d(ngf * 2),
-        )
+        if self.use_attention:
+            self.up311 = nn.Sequential(
+                spectral_norm(nn.ConvTranspose2d(ngf * 4 * 3, ngf * 2, kernel_size=4, stride=2, padding=1), use),
+                nn.InstanceNorm2d(ngf * 2),
+            )
+        else:
+            self.up311 = nn.Sequential(
+                spectral_norm(nn.ConvTranspose2d(ngf * 8, ngf * 2, kernel_size=4, stride=2, padding=1), use),
+                nn.InstanceNorm2d(ngf * 2),
+            )
         self.up21 = nn.Sequential(
             nn.ReLU(True),
             spectral_norm(nn.ConvTranspose2d(ngf * 2 * 2, ngf * 1, kernel_size=4, stride=2, padding=1), use),
@@ -192,7 +200,7 @@ class ImageGenerator(nn.Module):
             spectral_norm(nn.ConvTranspose2d(ngf * 1 * 2, 3, kernel_size=4, stride=2, padding=1), use),
             nn.Tanh(),
         )
-        self.use_attention = opt.use_attention
+        
         if self.use_attention:
             self.myattention = MyAttention(opt)
 
