@@ -299,6 +299,9 @@ def test():
     os.system(cmd)  
 
 if __name__ == '__main__':
+    cmd = "gsutil -m cp -r gs://experiments_logs/gmm/TOPS/gl/dataset/generator_layers_v2.1_categories.record /content/"
+    if not os.path.exists('/content/generator_layers_v2.1_categories.record'):
+        os.system(cmd)
     if opt.type == 'train':
         train()
     elif opt.type == 'test':
