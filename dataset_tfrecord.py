@@ -162,7 +162,7 @@ def define_dataset(tfrecord_path, batch_size, train=True, test=False):
             parse_func=_parse,
             filter_func=_filter,
             tfrecord_path=tfrecord_path,
-            num_data=1500,
+            num_data=5000,
             batch_size=per_replica_train_batch_size,
             mode="k_worst",
             data_split=1,
