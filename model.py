@@ -190,6 +190,7 @@ class MyModel(BaseModel):
         self.L_o, self.L_fea = self.netLBP(self.L_i, self.mask)
         _, self.I_FEA = self.netG(self.I_g, self.L_g, self.mask)
         self.I_o, self.I_fea = self.netG(self.I_i, self.L_o, self.mask)
+        self.I_raw = self.netG.output
 
     def backward_G(self, val=False):
         I_o = self.I_o
@@ -274,10 +275,11 @@ class MyModel(BaseModel):
 
     def optimize_parameters(self, val=False):
         self.forward()
-        self.I_o = self.I_o * self.mask + self.I_g * (1 - self.mask)
         if val:
             self.backward_G(val)
-            return self.I_g, self.I_o, self.loss_G
+            return self.I_g, self.I_o, self.I_i, self.loss_G, self.I_raw, self.L_o, self.mask
+        
+        self.I_o = self.I_o * self.mask + self.I_g * (1 - self.mask)
 
         self.set_requires_grad(self.netD2, True)
         self.optimizer_D2.zero_grad()

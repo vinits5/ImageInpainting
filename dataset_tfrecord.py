@@ -154,9 +154,22 @@ def create_dataset(parse_func, filter_func, tfrecord_path, num_data, batch_size,
     else:
         return dataset
 
-def define_dataset(tfrecord_path, batch_size, train=True):
+def define_dataset(tfrecord_path, batch_size, train=True, test=False):
     per_replica_train_batch_size = batch_size
     per_replica_val_batch_size = batch_size
+    if test:
+        data_gen, dataset_length = create_dataset(
+            parse_func=_parse,
+            filter_func=_filter,
+            tfrecord_path=tfrecord_path,
+            num_data=1500,
+            batch_size=per_replica_train_batch_size,
+            mode="k_worst",
+            data_split=1,
+            device='gpu',
+        )
+        return data_gen, dataset_length
+
     if train:
         data_gen, dataset_length = create_dataset(
             parse_func=_parse,

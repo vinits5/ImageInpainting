@@ -222,8 +222,8 @@ class ImageGenerator(nn.Module):
             up31 = self.myattention(up31[:, :256, :, :], up31[:, 256:, :, :], mask)
         up31 = self.up311(up31)
         up21 = self.up21(torch.cat([up31, dn21], 1))
-        output = self.up11(torch.cat([up21, dn11], 1)) + x
-        output = output * mask + x * (1 - mask)
+        self.output = self.up11(torch.cat([up21, dn11], 1)) + x
+        output = self.output * mask + x * (1 - mask)
         return output, [dn11, dn21, dn31, dn41, dn51, dn61, dn71, bottle1, up71, up61, up51, up41, up31, up21]
 
 

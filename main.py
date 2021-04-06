@@ -209,32 +209,87 @@ def train():
 
 def test():
     opt.device = 'cuda:0'
-    opt.data_root = 'demo/input/'   # The location of your testing data
-    opt.mask_root = 'demo/mask/'    # The location of your testing data mask
-    testset = MyDataLoader(opt)
-    print('Test with %d' % (len(testset)))
+    result_dir = 'results'
+    if not os.path.exists(result_dir): os.mkdir(result_dir)
+
+    from dataset_tfrecord import define_dataset
+    tfrecord_path = "/content/generator_layers_v2.1_categories.record"
+    batch_size = 1
+    testset, testset_length = define_dataset(tfrecord_path, batch_size, train=False, test=True)
+    dpp = Preprocess()      # data pre-process (dpp)
+
+    print('Test with %d' % (testset_length))
 
     model = MyModel()
     model.initialize(opt)
-    model.load_networks('places_irregular')     # For irregular mask inpainting
+    model.load_networks(str(38))     # For irregular mask inpainting
 
     val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
+    ids = []
+
+    test_iterator = iter(testset)
+    num_iterations = int(testset_length/batch_size)
+
+    def tensor2array(xx):
+        xx = xx.detach().cpu()[0]
+        xx = xx.permute(1, 2, 0).numpy()
+        xx = (xx+1)*0.5
+        xx = np.clip(xx, 0, 1)
+        if xx.shape[2] == 1:
+            return np.concatenate([xx, xx, xx], -1)[:, 32:32+192, :]
+        if xx.shape[2] == 3:
+            return xx[:, 32:32+192, :]
+
     with torch.no_grad():
-        for i, data in enumerate(testset):
-            fname = data['fname'][0]
+        for i in range(num_iterations):
+            if i == 1: break
+            data, model_inputs = next(test_iterator)
+            inpaint_region = data["inpaint_region"]
+
+            person_cloth = data["person_cloth"]
+            cloth_no = int(data['clothno'].numpy()[0])
+            person_no = int(data['personno'].numpy()[0])
+
+            data = dpp(person_cloth, inpaint_region)
+
             model.set_input(data)
-            I_g, I_o, val_loss_G = model.optimize_parameters(val=True)
+            I_g, I_o, I_i, val_loss_G, I_raw, L_o, mask = model.optimize_parameters(val=True)
+
+            plt.figure(figsize=(12,10))
+            plt.subplot(2, 3, 1)
+            plt.imshow(tensor2array(I_i))
+            plt.title("Input", fontsize=20)
+            plt.subplot(2, 3, 2)
+            plt.imshow(tensor2array(mask))
+            plt.title("Inpaint Region (M)", fontsize=20)
+            plt.subplot(2, 3, 3)
+            plt.imshow(tensor2array(I_g))
+            plt.title("Ground Truth (GT)", fontsize=20)
+            plt.subplot(2, 3, 4)
+            plt.imshow(tensor2array(L_o))
+            plt.title("LBP Output", fontsize=20)
+            plt.subplot(2, 3, 5)
+            plt.imshow(tensor2array(I_raw))
+            plt.title("Generator Output (GO)", fontsize=20)
+            plt.subplot(2, 3, 6)
+            plt.imshow(tensor2array(I_o))
+            plt.title("GO*M+GT*(1-M)", fontsize=20)
+            plt.savefig(f"{result_dir}/{i}_result.jpg")
+            plt.imsave(f"{result_dir}/{i}_input.jpg", tensor2array(I_i))
+            plt.imsave(f"{result_dir}/{i}_mask.png", tensor2array(mask))
+            plt.imsave(f"{result_dir}/{i}_output.jpg", tensor2array(I_o))
+
             val_s, val_p, val_m = metrics(I_g, I_o)
             val_ssim.append(val_s)
             val_psnr.append(val_p)
             val_mae.append(val_m)
             val_losses_G.append(val_loss_G.detach().item())
-            cv2.imwrite('demo/output/' + fname[:-4] + '.png', postprocess(I_o).numpy()[0])
-            print('Val (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' % (
-                i + 1, len(testset), np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)), end='\r')
-        print('Val G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
-              (np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)))
-
+            
+            ids.append(str(cloth_no)+'_'+str(person_no))
+    losses = {'ssim': val_ssim, 'val_mae': val_mae, 'psnr': val_psnr, 'loss_G': val_losses_G, 'ids': ids}
+    import pandas as pd 
+    csv = pd.DataFrame(losses)
+    csv.to_csv(f"{result_dir}/losses.csv")
 
 if __name__ == '__main__':
     if opt.type == 'train':
