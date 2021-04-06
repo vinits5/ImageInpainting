@@ -291,6 +291,9 @@ def test():
     csv = pd.DataFrame(losses)
     csv.to_csv(f"{result_dir}/losses.csv")
 
+    cmd = f"gsutil -m cp -r {result_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_eccv20_aim/{opt.checkpoints_dir.split('/')[1]}"
+    os.system(cmd)  
+
 if __name__ == '__main__':
     if opt.type == 'train':
         train()
