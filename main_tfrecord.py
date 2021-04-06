@@ -1,4 +1,4 @@
-# gsutil -m cp -r gs://experiments_logs/gmm/TOPS/gl/dataset/generator_layers_v2.1_categories.record /content/
+# gsutil -m cp -r gs://experiments_logs/gmm/TOPS/gl/dataset/generator_layers_v2.2_categories_lbp.record /content/
 
 import cv2
 import os
@@ -81,20 +81,21 @@ class Preprocess:
                 img_lbp[i, j, :] = self.lbp_calculated_pixel(img_gray, i, j)
         return img_lbp
 
-    def __call__(self, batch_image, batch_mask):
+    def __call__(self, batch_image, batch_mask, local_binary_pattern):
         batch_image = (batch_image+1)*0.5
         batch_image = tf.image.resize_with_pad(batch_image, 256, 256)
         batch_mask = tf.image.resize_with_pad(batch_mask, 256, 256)
+        local_binary_pattern = tf.image.resize_with_pad(local_binary_pattern, 256, 256)
 
         data = {'I_i': [], 'I_g': [], 'M': [], 'L_i': [], 'L_g': []}
-        for image, mask in zip(batch_image, batch_mask):
+        for image, mask, lbp in zip(batch_image, batch_mask, local_binary_pattern):
             # I_i = (image.numpy()+1)*0.5
             I_i = image.numpy()
             mask = mask.numpy()
-            
+            L_i = lbp.numpy()
+
             I_i = np.array(I_i*255, dtype=np.uint8)
             I_g = copy.deepcopy(I_i)
-            L_i = self.load_lbp(copy.deepcopy(I_i))
             L_g = copy.deepcopy(L_i)
 
             I_i = self.transform(I_i)
@@ -145,8 +146,8 @@ def train():
 
     if not os.path.exists(opt.checkpoints_dir): os.mkdir(opt.checkpoints_dir)
 
-    from dataset_tfrecord import define_dataset
-    tfrecord_path = "/content/generator_layers_v2.1_categories.record"
+    from dataset_tfrecord_withLBP import define_dataset
+    tfrecord_path = "/content/generator_layers_v2.2_categories_lbp.record"
     batch_size = opt.batchSize
     trainset, trainset_length = define_dataset(tfrecord_path, batch_size, train=True)
     valset, valset_length = define_dataset(tfrecord_path, batch_size, train=False)
@@ -156,7 +157,7 @@ def train():
     dpp = Preprocess()      # data pre-process (dpp)
 
     print('Train/Val with %d/%d' % (trainset_length, valset_length))
-    for epoch in range(1, 1000):
+    for epoch in range(1, 35):
         print('Epoch: %d' % epoch)
         
         train_iterator = iter(trainset)
@@ -165,15 +166,16 @@ def train():
         epoch_iter = 0
         losses_G, ssim, psnr, mae = [], [], [], []
         for i in range(num_iterations):
+            # if i == 1: break
             epoch_iter += opt.batchSize
 
             data, model_inputs = next(train_iterator)
             inpaint_region = data["inpaint_region"]
 
             person_cloth = data["person_cloth"]
-            # warped_cloth_input = model_inputs["warped_cloth"]     # Not using masked cloth. (person_cloth*inpaint_region)
+            local_binary_pattern = data["local_binary_pattern"]
 
-            data = dpp(person_cloth, inpaint_region)
+            data = dpp(person_cloth, inpaint_region, local_binary_pattern)
             try:
                 model.set_input(data)
                 I_g, I_o, loss_G = model.optimize_parameters()
@@ -203,7 +205,7 @@ def train():
                     #         (epoch_iter, len(train_set), np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)))
                     losses_G, ssim, psnr, mae = [], [], [], []
             except:
-                print("Error Occured")
+                print("Error")
                 pass
         model.save_networks(epoch)
 
@@ -213,8 +215,8 @@ def test():
     result_dir = 'results'
     if not os.path.exists(result_dir): os.mkdir(result_dir)
 
-    from dataset_tfrecord import define_dataset
-    tfrecord_path = "/content/generator_layers_v2.1_categories.record"
+    from dataset_tfrecord_withLBP import define_dataset
+    tfrecord_path = "/content/generator_layers_v2.2_categories_lbp.record"
     batch_size = 1
     testset, testset_length = define_dataset(tfrecord_path, batch_size, train=False, test=True)
     dpp = Preprocess()      # data pre-process (dpp)
@@ -223,7 +225,7 @@ def test():
 
     model = MyModel()
     model.initialize(opt)
-    model.load_networks(str(38))     # For irregular mask inpainting
+    model.load_networks(str(32))     # For irregular mask inpainting
 
     val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
     ids = []
@@ -243,7 +245,7 @@ def test():
 
     with torch.no_grad():
         for i in range(num_iterations):
-            # if i == 1: break
+            # if i == 2: break
             try:
                 data, model_inputs = next(test_iterator)
             except:
@@ -251,13 +253,18 @@ def test():
             inpaint_region = data["inpaint_region"]
 
             person_cloth = data["person_cloth"]
+            local_binary_pattern = data["local_binary_pattern"]
             cloth_no = int(data['clothno'].numpy()[0])
             person_no = int(data['personno'].numpy()[0])
 
-            data = dpp(person_cloth, inpaint_region)
+            data = dpp(person_cloth, inpaint_region, local_binary_pattern)
 
             model.set_input(data)
-            I_g, I_o, I_i, val_loss_G, I_raw, L_o, mask = model.optimize_parameters(val=True)
+            try:
+                I_g, I_o, I_i, val_loss_G, I_raw, L_o, mask = model.optimize_parameters(val=True)
+            except: 
+                print("Error")
+                continue
 
             plt.figure(figsize=(12,10))
             plt.subplot(2, 3, 1)
