@@ -242,7 +242,7 @@ def test():
 
     with torch.no_grad():
         for i in range(num_iterations):
-            if i == 1: break
+            # if i == 1: break
             data, model_inputs = next(test_iterator)
             inpaint_region = data["inpaint_region"]
 
