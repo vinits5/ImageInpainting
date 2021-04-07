@@ -10,12 +10,15 @@ from attention import MyAttention
 
 
 class LBPGenerator(nn.Module):
-    def __init__(self):
+    def __init__(self, opt):
         super(LBPGenerator, self).__init__()
         ngf = 64
         use = False
+        self.use_lbp_input = opt.use_lbp_input
+        if self.use_lbp_input: input_channels = 2
+        else: input_channels = 4
         self.dn1 = nn.Sequential(
-            spectral_norm(nn.Conv2d(2, ngf * 1, kernel_size=4, stride=2, padding=1), use),
+            spectral_norm(nn.Conv2d(input_channels, ngf * 1, kernel_size=4, stride=2, padding=1), use),
         )
         self.dn2 = nn.Sequential(
             nn.LeakyReLU(0.2, True),
@@ -105,8 +108,11 @@ class LBPGenerator(nn.Module):
         up4 = self.up4(torch.cat([up5, dn4], 1))
         up3 = self.up3(torch.cat([up4, dn3], 1))
         up2 = self.up2(torch.cat([up3, dn2], 1))
-        plbp = self.up1(torch.cat([up2, dn1], 1)) + lbp
-        plbp = plbp * mask + lbp * (1 - mask)
+        if self.use_lbp_input:
+            plbp = self.up1(torch.cat([up2, dn1], 1)) + lbp
+            plbp = plbp * mask + lbp * (1 - mask)
+        else:
+            plbp = self.up1(torch.cat([up2, dn1], 1))
         return plbp, [dn1, dn2, dn3, dn4, dn5, dn6, dn7, bottle, up7, up6, up5, up4, up3, up2]
 
 
@@ -346,7 +352,7 @@ def define_G(opt):
 
 
 def define_LBP(opt):
-    netG = LBPGenerator()
+    netG = LBPGenerator(opt)
     return init_net(netG, device=opt.device)
 
 

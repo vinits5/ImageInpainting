@@ -187,7 +187,10 @@ class MyModel(BaseModel):
         self.I_g = I_g
 
     def forward(self):
-        self.L_o, self.L_fea = self.netLBP(self.L_i, self.mask)
+        if self.opt.use_lbp_input:
+            self.L_o, self.L_fea = self.netLBP(self.L_i, self.mask)
+        else:
+            self.L_o, self.L_fea = self.netLBP(self.I_i, self.mask)
         _, self.I_FEA = self.netG(self.I_g, self.L_g, self.mask)
         self.I_o, self.I_fea = self.netG(self.I_i, self.L_o, self.mask)
         self.I_raw = self.netG.output

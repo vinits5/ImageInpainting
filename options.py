@@ -19,7 +19,8 @@ class BaseOptions():
         parser.add_argument('--dataset_mode', type=str, default='aligned', help='chooses how datasets are loaded. [aligned | aligned_resized | single]')
         parser.add_argument('--nThreads', default=8, type=int, help='# threads for loading data')
         parser.add_argument('--checkpoints_dir', type=str, default='./exp_lbp_v2_wo_attn', help='models are saved here')
-        parser.add_argument('--use_attention', type=bool, default=True, help='whether to use attention in generator or not.')
+        parser.add_argument('--use_attention', type=bool, default=False, help='whether to use attention in generator or not.')
+        parser.add_argument('--use_lbp_input', type=bool, default=False, help='whether to use LBP(input_image) as argument to LBPNetwork.')
         parser.add_argument('--norm', type=str, default='instance', help='[instance|batch|switchable] normalization')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
 
