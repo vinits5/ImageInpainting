@@ -266,7 +266,7 @@ def test():
                 print("Error")
                 continue
 
-            plt.figure(figsize=(12,10))
+            fig = plt.figure(figsize=(12,10))
             plt.subplot(2, 3, 1)
             plt.imshow(tensor2array(I_i))
             plt.title("Input", fontsize=20)
@@ -286,6 +286,7 @@ def test():
             plt.imshow(tensor2array(I_o))
             plt.title("GO*M+GT*(1-M)", fontsize=20)
             plt.savefig(f"{result_dir}/{i}_result.jpg")
+            plt.close(fig)
             plt.imsave(f"{result_dir}/{i}_input.jpg", tensor2array(I_i))
             plt.imsave(f"{result_dir}/{i}_mask.png", tensor2array(mask))
             plt.imsave(f"{result_dir}/{i}_output.jpg", tensor2array(I_o))
