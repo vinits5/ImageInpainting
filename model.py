@@ -147,13 +147,14 @@ class MyModel(BaseModel):
         if self.opt.use_lbp_network:
             self.model_names = ['G', 'LBP', 'D', 'D2']
         else:
-            self.model_names = ['G', 'D', 'D2']
+            self.model_names = ['G', 'D']
 
         self.netG = networks.define_G(self.opt)
         if self.opt.use_lbp_network:
             self.netLBP = networks.define_LBP(self.opt)
         self.netD = networks.define_D(opt.input_nc, opt.ndf, self.opt.device) # Discriminator for netG
-        self.netD2 = networks.define_D(opt.input_nc - 2, opt.ndf, self.opt.device) # Discriminator for netLBP
+        if self.opt.use_lbp_network:
+            self.netD2 = networks.define_D(opt.input_nc - 2, opt.ndf, self.opt.device) # Discriminator for netLBP
 
         self.vgg16_extractor = util.VGG16FeatureExtractor().to(self.opt.device)
 
@@ -169,15 +170,18 @@ class MyModel(BaseModel):
         if self.opt.use_lbp_network:
             self.optimizer_LBP = torch.optim.Adam(self.netLBP.parameters(), lr=opt.lr, betas=(0.5, 0.999))
         self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(0.5, 0.999))
-        self.optimizer_D2 = torch.optim.Adam(self.netD2.parameters(), lr=opt.lr, betas=(0.5, 0.999))
+
+        if self.opt.use_lbp_network:
+            self.optimizer_D2 = torch.optim.Adam(self.netD2.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
         _, self.rand_t, self.rand_l = util.create_rand_mask(self.opt)
 
     def set_input(self, input):
         I_i = input['I_i'].to(self.opt.device)
         I_g = input['I_g'].to(self.opt.device)
-        self.L_i = input['L_i'].to(self.opt.device)
-        self.L_g = input['L_g'].to(self.opt.device)
+        if self.opt.use_lbp_network:
+            self.L_i = input['L_i'].to(self.opt.device)
+            self.L_g = input['L_g'].to(self.opt.device)
 
         self.mask = input['M'].to(self.opt.device).narrow(1,0,1)
         self.mask_tmp = input['M'].to(self.opt.device).byte()
@@ -186,7 +190,8 @@ class MyModel(BaseModel):
         I_i.narrow(1, 0, 1).masked_fill_(self.mask_tmp, 0.)
         I_i.narrow(1, 1, 1).masked_fill_(self.mask_tmp, 0.)
         I_i.narrow(1, 2, 1).masked_fill_(self.mask_tmp, 0.)
-        self.L_i.narrow(1, 0, 1).masked_fill_(self.mask_tmp, 0.)
+        if self.opt.use_lbp_network:
+            self.L_i.narrow(1, 0, 1).masked_fill_(self.mask_tmp, 0.)
 
         self.I_i = I_i
         self.I_g = I_g
