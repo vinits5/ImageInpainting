@@ -144,10 +144,14 @@ class MyModel(BaseModel):
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
         self.opt = opt
-        self.model_names = ['G', 'LBP', 'D', 'D2']
+        if self.opt.use_lbp_network:
+            self.model_names = ['G', 'LBP', 'D', 'D2']
+        else:
+            self.model_names = ['G', 'D', 'D2']
 
         self.netG = networks.define_G(self.opt)
-        self.netLBP = networks.define_LBP(self.opt)
+        if self.opt.use_lbp_network:
+            self.netLBP = networks.define_LBP(self.opt)
         self.netD = networks.define_D(opt.input_nc, opt.ndf, self.opt.device) # Discriminator for netG
         self.netD2 = networks.define_D(opt.input_nc - 2, opt.ndf, self.opt.device) # Discriminator for netLBP
 
@@ -162,7 +166,8 @@ class MyModel(BaseModel):
         self.criterionL2_perceptual_loss = torch.nn.MSELoss()
 
         self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(0.5, 0.999))
-        self.optimizer_LBP = torch.optim.Adam(self.netLBP.parameters(), lr=opt.lr, betas=(0.5, 0.999))
+        if self.opt.use_lbp_network:
+            self.optimizer_LBP = torch.optim.Adam(self.netLBP.parameters(), lr=opt.lr, betas=(0.5, 0.999))
         self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(0.5, 0.999))
         self.optimizer_D2 = torch.optim.Adam(self.netD2.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
@@ -187,10 +192,14 @@ class MyModel(BaseModel):
         self.I_g = I_g
 
     def forward(self):
-        if self.opt.use_lbp_input:
-            self.L_o, self.L_fea = self.netLBP(self.L_i, self.mask)
+        if self.opt.use_lbp_network:
+            if self.opt.use_lbp_input:
+                self.L_o, self.L_fea = self.netLBP(self.L_i, self.mask)
+            else:
+                self.L_o, self.L_fea = self.netLBP(self.I_i, self.mask)
         else:
-            self.L_o, self.L_fea = self.netLBP(self.I_i, self.mask)
+            self.L_o, self.L_g = None, None
+
         _, self.I_FEA = self.netG(self.I_g, self.L_g, self.mask)
         self.I_o, self.I_fea = self.netG(self.I_i, self.L_o, self.mask)
         self.I_raw = self.netG.output
@@ -210,14 +219,19 @@ class MyModel(BaseModel):
             L_g = L_g[:, :, self.rand_t:self.rand_t + self.opt.fineSize // 2 - 2 * self.opt.overlap, self.rand_l:self.rand_l + self.opt.fineSize // 2 - 2 * self.opt.overlap]
 
         pred_I_o = self.netD(I_o)
-        pred_L_o = self.netD2(L_o)
+        if self.opt.use_lbp_network:
+            pred_L_o = self.netD2(L_o)
 
         self.loss_G_GAN = self.criterionGAN(pred_I_o, True) * self.opt.gan_weight
-        self.loss_G_GAN += self.criterionGAN(pred_L_o, True) * self.opt.gan_weight
+        
+        if self.opt.use_lbp_network:
+            self.loss_G_GAN += self.criterionGAN(pred_L_o, True) * self.opt.gan_weight
 
         self.loss_G_L2 = 0
         self.loss_G_L2 += self.criterionL2(self.I_o, self.I_g) * 10
-        self.loss_G_L2 += self.criterionL2(self.L_o, self.L_g) * self.opt.lambda_A
+
+        if self.opt.use_lbp_network:
+            self.loss_G_L2 += self.criterionL2(self.L_o, self.L_g) * self.opt.lambda_A
 
         vgg_ft_I_o = self.vgg16_extractor(I_o)
         vgg_ft_I_g = self.vgg16_extractor(I_g)
@@ -284,11 +298,12 @@ class MyModel(BaseModel):
         
         self.I_o = self.I_o * self.mask + self.I_g * (1 - self.mask)
 
-        self.set_requires_grad(self.netD2, True)
-        self.optimizer_D2.zero_grad()
-        self.backward_D2()
-        self.optimizer_D2.step()
-        self.set_requires_grad(self.netD2, False)
+        if self.opt.use_lbp_network:
+            self.set_requires_grad(self.netD2, True)
+            self.optimizer_D2.zero_grad()
+            self.backward_D2()
+            self.optimizer_D2.step()
+            self.set_requires_grad(self.netD2, False)
 
         self.set_requires_grad(self.netD, True)
         self.optimizer_D.zero_grad()

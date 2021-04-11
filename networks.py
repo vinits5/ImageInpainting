@@ -121,10 +121,17 @@ class ImageGenerator(nn.Module):
         super(ImageGenerator, self).__init__()
         use = False
         ngf = 64
+
+        self.use_lbp_network = opt.use_lbp_network
         self.use_attention = opt.use_attention
 
+        if self.use_lbp_network:
+            input_channels = 5
+        else:
+            input_channels = 4
+
         self.dn11 = nn.Sequential(
-            spectral_norm(nn.Conv2d(5, ngf * 1, kernel_size=4, stride=2, padding=1), use),
+            spectral_norm(nn.Conv2d(input_channels, ngf * 1, kernel_size=4, stride=2, padding=1), use),
         )
         self.dn21 = nn.Sequential(
             nn.LeakyReLU(0.2, True),
@@ -211,7 +218,11 @@ class ImageGenerator(nn.Module):
             self.myattention = MyAttention(opt)
 
     def forward(self, x, lbp, mask, second=False):
-        dn11 = self.dn11(torch.cat([x, lbp, 1 - mask], 1))
+        if self.use_lbp_network:
+            dn11 = self.dn11(torch.cat([x, lbp, 1 - mask], 1))
+        else:
+            dn11 = self.dn11(torch.cat([x, 1 - mask], 1))
+            
         dn21 = self.dn21(dn11)
         dn31 = self.dn31(dn21)
         dn41 = self.dn41(dn31)
