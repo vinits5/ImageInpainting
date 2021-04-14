@@ -141,8 +141,10 @@ class BaseModel():
 
 
 class MyModel(BaseModel):
-    def initialize(self, opt):
+    def initialize(self, opt, writer=None):
         BaseModel.initialize(self, opt)
+        self.writer = writer
+        self.num_step = 0
         self.opt = opt
         if self.opt.use_lbp_network:
             self.model_names = ['G', 'LBP', 'D', 'D2']
@@ -254,6 +256,12 @@ class MyModel(BaseModel):
             self.loss_multi += self.criterionL2(self.I_fea[i], self.I_FEA[i]) * 0.01
 
         self.loss_G = self.loss_G_L2 + self.loss_G_GAN + self.loss_style + self.loss_perceptual + self.loss_multi
+        if self.writer is not None: self.writer.add_scalar('generator_loss', self.loss_G.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/L2_loss', self.loss_G_L2.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/GAN_loss', self.loss_G_GAN.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/style_loss', self.loss_style.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/perceptual_loss', self.loss_perceptual.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/multi_loss', self.loss_multi.item(), self.num_step)
 
         if val:
             return
@@ -275,6 +283,7 @@ class MyModel(BaseModel):
         self.loss_D_I_o = self.criterionGAN(self.pred_I_o, False)
         self.loss_D_I_g = self.criterionGAN (self.pred_I_g, True)
         self.loss_D = (self.loss_D_I_o + self.loss_D_I_g) * 0.5
+        if self.writer is not None: self.writer.add_scalar('discriminator_loss', self.loss_D.item(), self.num_step)
         self.loss_D.backward()
 
     def backward_D2(self):
@@ -293,6 +302,7 @@ class MyModel(BaseModel):
         self.loss_D_L_o = self.criterionGAN(self.pred_L_o, False)
         self.loss_D_L_g = self.criterionGAN(self.pred_L_g, True)
         self.loss_D = (self.loss_D_L_o + self.loss_D_L_g) * 0.5
+        if self.writer is not None: self.writer.add_scalar('discriminator_loss2', self.loss_D.item(), self.num_step)
         self.loss_D.backward()
 
     def optimize_parameters(self, val=False):
@@ -319,4 +329,5 @@ class MyModel(BaseModel):
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
+        self.num_step += self.opt.batchSize
         return self.I_g, self.I_o, self.loss_G

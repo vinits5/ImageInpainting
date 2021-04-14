@@ -15,6 +15,9 @@ from PIL import Image
 from options import MyOptions
 from skimage.measure import compare_ssim, compare_psnr
 from model import MyModel
+cmd = 'pip install tensorboardX'
+os.system(cmd)
+from tensorboardX import SummaryWriter
 
 opt = MyOptions().parse()
 
@@ -92,6 +95,8 @@ def train():
     opt.device = 'cuda:0'
 
     if not os.path.exists(opt.checkpoints_dir): os.mkdir(opt.checkpoints_dir)
+    log_dir = 'tensorboard'
+    writer = SummaryWriter(f"{opt.checkpoints_dir}/{log_dir}")
 
     from dataset_tfrecord import define_dataset
     tfrecord_path = "/content/generator_layers_v2.2_categories_lbp.record"
@@ -154,6 +159,8 @@ def train():
                 print("Error")
                 pass
         model.save_networks(epoch)
+        cmd = f"gsutil -m cp -r {opt.checkpoints_dir}/{log_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
+
 
 
 def test():
