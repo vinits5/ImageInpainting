@@ -9,7 +9,7 @@ class BaseOptions():
 
     def initialize(self, parser):
         parser.add_argument('type', type=str, help='train or test the model', choices=['train', 'test'])
-        parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
+        parser.add_argument('--batchSize', type=int, default=12, help='input batch size')
         parser.add_argument('--loadSize', type=int, default=256, help='scale images to this size')
         parser.add_argument('--fineSize', type=int, default=256, help='then crop to this size')
         parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
@@ -18,7 +18,7 @@ class BaseOptions():
         parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
         parser.add_argument('--dataset_mode', type=str, default='aligned', help='chooses how datasets are loaded. [aligned | aligned_resized | single]')
         parser.add_argument('--nThreads', default=8, type=int, help='# threads for loading data')
-        parser.add_argument('--checkpoints_dir', type=str, default='./exp_lbp_wo_attn_lbpNet_bs16_v2', help='models are saved here')
+        parser.add_argument('--checkpoints_dir', type=str, default='./v1_skin_lbp_results', help='models are saved here')
         parser.add_argument('--use_attention', type=bool, default=False, help='whether to use attention in generator or not.')
         parser.add_argument('--use_lbp_input', type=bool, default=False, help='whether to use LBP(input_image) as argument to LBPNetwork.')
         parser.add_argument('--use_lbp_network', type=bool, default=False, help='whether to use LBP Network.')

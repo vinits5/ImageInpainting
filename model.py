@@ -95,7 +95,7 @@ class BaseModel():
     # load models from the disk
     def load_networks(self, which_epoch):
         for name in self.model_names:
-            if name in ['D', 'D2']:
+            if name in ['D2']:
                 continue
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (which_epoch, name)
@@ -183,13 +183,19 @@ class MyModel(BaseModel):
             self.L_i = input['L_i'].to(self.opt.device)
             self.L_g = input['L_g'].to(self.opt.device)
 
+        self.mask = input['M'].to(self.opt.device)
+        self.mask_tmp = input['M'].to(self.opt.device).byte()
+
+        """
         self.mask = input['M'].to(self.opt.device).narrow(1,0,1)
         self.mask_tmp = input['M'].to(self.opt.device).byte()
         self.mask_tmp = self.mask_tmp.narrow(1,0,1)
+        
 
         I_i.narrow(1, 0, 1).masked_fill_(self.mask_tmp, 0.)
         I_i.narrow(1, 1, 1).masked_fill_(self.mask_tmp, 0.)
         I_i.narrow(1, 2, 1).masked_fill_(self.mask_tmp, 0.)
+        """
         if self.opt.use_lbp_network:
             self.L_i.narrow(1, 0, 1).masked_fill_(self.mask_tmp, 0.)
 

@@ -39,19 +39,24 @@ class Preprocess:
         transform_list = [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
         self.transform = transforms.Compose(transform_list)
 
-    def __call__(self, batch_image, batch_mask):
+    def __call__(self, batch_image, batch_mask, batch_person):
         batch_image = (batch_image+1)*0.5
         batch_image = tf.image.resize_with_pad(batch_image, 256, 256)
+
+        batch_person = (batch_person+1)*0.5
+        batch_person = tf.image.resize_with_pad(batch_person, 256, 256)
+
         batch_mask = tf.image.resize_with_pad(batch_mask, 256, 256)
 
         data = {'I_i': [], 'I_g': [], 'M': [], 'L_i': [], 'L_g': []}
-        for image, mask in zip(batch_image, batch_mask):
+        for image, mask, person in zip(batch_image, batch_mask, batch_person):
             # I_i = (image.numpy()+1)*0.5
             I_i = image.numpy()
             mask = mask.numpy()
 
             I_i = np.array(I_i*255, dtype=np.uint8)
-            I_g = copy.deepcopy(I_i)
+            I_g = person.numpy()
+            I_g = np.array(I_g*255, dtype=np.uint8)
 
             I_i = self.transform(I_i)
             I_g = self.transform(I_g)
@@ -94,17 +99,18 @@ def train():
     if not os.path.exists(opt.checkpoints_dir): os.mkdir(opt.checkpoints_dir)
 
     from dataset_tfrecord import define_dataset
-    tfrecord_path = "/content/generator_layers_v2.2_categories_lbp.record"
+    tfrecord_path = "/content/person-tfrecord-v1.2_web_downloaded_skirts.record"
     batch_size = opt.batchSize
     trainset, trainset_length = define_dataset(tfrecord_path, batch_size, train=True)
     valset, valset_length = define_dataset(tfrecord_path, batch_size, train=False)
 
     model = MyModel()
     model.initialize(opt)
+    model.load_networks(str(17))
     dpp = Preprocess()      # data pre-process (dpp)
 
     print('Train/Val with %d/%d' % (trainset_length, valset_length))
-    for epoch in range(1, 35):
+    for epoch in range(18, 100):
         print('Epoch: %d' % epoch)
         
         train_iterator = iter(trainset)
@@ -117,11 +123,10 @@ def train():
             epoch_iter += opt.batchSize
 
             data, model_inputs = next(train_iterator)
-            inpaint_region = data["inpaint_region"]
-
-            person_cloth = data["person_cloth"]
-
-            data = dpp(person_cloth, inpaint_region)
+            skin_mask = data["skin_mask"]
+            person_priors = data["person_priors"]
+            person = data["person"]
+            data = dpp(person_priors, skin_mask, person)
             try:
                 model.set_input(data)
                 I_g, I_o, loss_G = model.optimize_parameters()
@@ -162,7 +167,7 @@ def test():
     if not os.path.exists(result_dir): os.mkdir(result_dir)
 
     from dataset_tfrecord import define_dataset
-    tfrecord_path = "/content/generator_layers_v2.2_categories_lbp.record"
+    tfrecord_path = "/content/person-tfrecord-v1.2_web_downloaded_skirts.record"
     batch_size = 1
     testset, testset_length = define_dataset(tfrecord_path, batch_size, train=False, test=True)
     dpp = Preprocess()      # data pre-process (dpp)
@@ -171,13 +176,14 @@ def test():
 
     model = MyModel()
     model.initialize(opt)
-    model.load_networks(str(32))     # For irregular mask inpainting
+    model.load_networks(str(26))     # For irregular mask inpainting
 
     val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
     ids = []
 
     test_iterator = iter(testset)
-    num_iterations = int(testset_length/batch_size)
+    #num_iterations = int(testset_length/batch_size)
+    num_iterations = int(500)
 
     def tensor2array(xx):
         xx = xx.detach().cpu()[0]
@@ -196,13 +202,13 @@ def test():
                 data, model_inputs = next(test_iterator)
             except:
                 break
-            inpaint_region = data["inpaint_region"]
 
-            person_cloth = data["person_cloth"]
-            cloth_no = int(data['clothno'].numpy()[0])
-            person_no = int(data['personno'].numpy()[0])
-
-            data = dpp(person_cloth, inpaint_region)
+            skin_mask = data["skin_mask"]
+            person_priors = data["person_priors"]
+            person = data["person"]
+            
+            person_no = int(data['person_no'].numpy()[0])
+            data = dpp(person_priors, skin_mask, person)
 
             model.set_input(data)
             try:
@@ -239,18 +245,18 @@ def test():
             val_mae.append(val_m)
             val_losses_G.append(val_loss_G.detach().item())
             
-            ids.append(str(cloth_no)+'_'+str(person_no))
+            ids.append(str(person_no))
     losses = {'ssim': val_ssim, 'val_mae': val_mae, 'psnr': val_psnr, 'loss_G': val_losses_G, 'ids': ids}
     import pandas as pd 
     csv = pd.DataFrame(losses)
     csv.to_csv(f"{result_dir}/losses.csv")
 
-    cmd = f"gsutil -m cp -r {result_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
-    os.system(cmd)  
+    cmd = f"gsutil -m cp -r {result_dir} gs://experiments_logs/tom/TOPS/v20_lbp_sota_noisy_grapy/{opt.checkpoints_dir.split('/')[1]}"
+    os.system(cmd)
 
 if __name__ == '__main__':
-    cmd = "gsutil -m cp -r gs://experiments_logs/gmm/TOPS/gl/dataset/generator_layers_v2.2_categories_lbp.record /content/"
-    if not os.path.exists('/content/generator_layers_v2.2_categories_lbp.record'):
+    cmd = "gsutil -m cp -r gs://labelling-tools-data/tfrecords/person-tfrecord-v1.2_web_downloaded_skirts.record /content/"
+    if not os.path.exists('/content/person-tfrecord-v1.2_web_downloaded_skirts.record'):
         os.system(cmd)
     if opt.type == 'train':
         train()
