@@ -17,6 +17,8 @@ from skimage.measure import compare_ssim, compare_psnr
 from model import MyModel
 cmd = 'pip install tensorboardX'
 os.system(cmd)
+cmd = 'pip install torch-summary'
+os.system(cmd)
 from tensorboardX import SummaryWriter
 
 opt = MyOptions().parse()
@@ -107,6 +109,9 @@ def train():
     model = MyModel()
     model.initialize(opt)
     dpp = Preprocess()      # data pre-process (dpp)
+
+    from torchsummary import summary
+    summary(model.netG, (4, 256, 256))
 
     print('Train/Val with %d/%d' % (trainset_length, valset_length))
     for epoch in range(1, 35):
