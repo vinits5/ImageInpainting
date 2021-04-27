@@ -111,7 +111,7 @@ def train():
     dpp = Preprocess()      # data pre-process (dpp)
 
     from torchsummary import summary
-    summary(model.netG, (4, 256, 256))
+#     summary(model.netG, (4, 256, 256))
 
     print('Train/Val with %d/%d' % (trainset_length, valset_length))
     for epoch in range(1, 35):
