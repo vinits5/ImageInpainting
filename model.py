@@ -257,11 +257,11 @@ class MyModel(BaseModel):
 
         self.loss_G = self.loss_G_L2 + self.loss_G_GAN + self.loss_style + self.loss_perceptual + self.loss_multi
         if self.writer is not None: self.writer.add_scalar('generator_loss', self.loss_G.item(), self.num_step)
-        if self.writer is not None: self.writer.add_scalar('Generator/L2_loss', self.loss_G_L2.item(), self.num_step)
-        if self.writer is not None: self.writer.add_scalar('Generator/GAN_loss', self.loss_G_GAN.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/recon_loss', self.loss_G_L2.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/D1_G_loss', self.loss_G_GAN.item(), self.num_step)
         if self.writer is not None: self.writer.add_scalar('Generator/style_loss', self.loss_style.item(), self.num_step)
-        if self.writer is not None: self.writer.add_scalar('Generator/perceptual_loss', self.loss_perceptual.item(), self.num_step)
-        if self.writer is not None: self.writer.add_scalar('Generator/multi_loss', self.loss_multi.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/vgg_loss', self.loss_perceptual.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Generator/features_loss', self.loss_multi.item(), self.num_step)
 
         if val:
             return
@@ -284,6 +284,8 @@ class MyModel(BaseModel):
         self.loss_D_I_g = self.criterionGAN (self.pred_I_g, True)
         self.loss_D = (self.loss_D_I_o + self.loss_D_I_g) * 0.5
         if self.writer is not None: self.writer.add_scalar('discriminator_loss', self.loss_D.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Discriminator/D1_loss_gen', self.loss_D_I_o.item(), self.num_step)
+        if self.writer is not None: self.writer.add_scalar('Discriminator/D1_loss_real', self.loss_D_I_g.item(), self.num_step)
         self.loss_D.backward()
 
     def backward_D2(self):
