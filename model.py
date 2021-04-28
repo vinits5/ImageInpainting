@@ -332,4 +332,4 @@ class MyModel(BaseModel):
         self.backward_G()
         self.optimizer_G.step()
         self.num_step += self.opt.batchSize
-        return self.I_g, self.I_o, self.loss_G
+        return self.I_g, self.I_o, self.loss_G, self.loss_G_L2, self.loss_G_GAN, self.loss_style, self.loss_perceptual, self.loss_multi, self.loss_D_I_o, self.loss_D_I_g

@@ -134,7 +134,7 @@ def train():
             data = dpp(person_cloth, inpaint_region)
             try:
                 model.set_input(data)
-                I_g, I_o, loss_G = model.optimize_parameters()
+                I_g, I_o, loss_G, loss_G_L2, loss_G_GAN, loss_style, loss_perceptual, loss_multi, loss_D_I_o, loss_D_I_g = model.optimize_parameters()
                 s, p, m = metrics(I_g, I_o)
                 ssim.append(s)
                 psnr.append(p)
@@ -142,24 +142,10 @@ def train():
                 losses_G.append(loss_G.detach().item())
                 if i % 100 == 0:
                     print('Tra (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
-                        (epoch_iter, trainset_length, np.mean(losses_G), np.mean(ssim), np.mean(psnr), np.mean(mae)))#, end='\r')
-                if epoch_iter == trainset_length:
-                    # val_ssim, val_psnr, val_mae, val_losses_G = [], [], [], []
-                    # with torch.no_grad():
-                    #     for i, data in enumerate(val_set):
-                    #         fname = data['fname'][0]
-                    #         model.set_input(data)
-                    #         I_g, I_o, val_loss_G = model.optimize_parameters(val=True)
-                    #         val_s, val_p, val_m = metrics(I_g, I_o)
-                    #         val_ssim.append(val_s)
-                    #         val_psnr.append(val_p)
-                    #         val_mae.append(val_m)
-                    #         val_losses_G.append(val_loss_G.item())
-                    #         if i+1 <= 200:
-                    #             cv2.imwrite('./demo/output/' + fname[:-4] + '.png', postprocess(I_o).numpy()[0])
-                    #     print('Val (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
-                    #         (epoch_iter, len(train_set), np.mean(val_losses_G), np.mean(val_ssim), np.mean(val_psnr), np.mean(val_mae)))
-                    losses_G, ssim, psnr, mae = [], [], [], []
+                        (epoch_iter, trainset_length, np.mean(losses_G), np.mean(ssim), np.mean(psnr), np.mean(mae)))
+                    print('D1_loss_gen: %4.4f | D1_loss_real: %4.4f | D1_G_loss: %4.4f | recon_loss: %4.4f | \
+                        vgg_loss: %4.4f | features_loss: %4.4f | style_loss: %4.4f'%(loss_D_I_o.item(), loss_D_I_g.item()\
+                            loss_G_GAN.item(), loss_G_L2.item(), loss_perceptual.item(), loss_multi.item(), loss_style.item()))
             except:
                 print("Error")
                 pass
