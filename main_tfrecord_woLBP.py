@@ -166,6 +166,10 @@ def train():
         weights_after = model.netG.dn11[0].weight[output_channel_idx, input_channel_idx].detach().cpu()
         print(weights_after)
         print('\n\n')
+        print('Gradients: ')
+        gradients = model.netG.dn11[0].weight.grad[output_channel_idx, input_channel_idx].detach().cpu()
+        print(gradients)
+        print('\n\n')
         # model.save_networks(epoch)
         # cmd = f"gsutil -m cp -r {opt.checkpoints_dir}/{log_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
 
