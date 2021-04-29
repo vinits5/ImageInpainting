@@ -110,6 +110,11 @@ def train():
     model.initialize(opt)
     dpp = Preprocess()      # data pre-process (dpp)
 
+    output_channel_idx = 0
+    input_channel_idx = 0
+    weights_b4 = copy.deepcopy(model.netG.dn11[0].weight[output_channel_idx, input_channel_idx].detach().cpu())
+    
+
     from torchsummary import summary
 #     summary(model.netG, (4, 256, 256))
 
@@ -143,14 +148,23 @@ def train():
                 mae.append(m)
                 losses_G.append(loss_G.detach().item())
                 if i % 100 == 0:
-                    print('Tra (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
+                    print('\n\nTra (%d/%d) G:%5.4f, S:%4.4f, P:%4.2f, M:%4.4f' %
                         (epoch_iter, trainset_length, np.mean(losses_G), np.mean(ssim), np.mean(psnr), np.mean(mae)))
-                    print('D1_loss_gen: %4.4f | D1_loss_real: %4.4f | D1_G_loss: %4.4f | recon_loss: %4.4f | \
+                    print('D1_loss_gen: %4.4f | D1_loss_real: %4.4f | D1_G_loss: %4.4f | recon_loss: %4.4f |\
                         vgg_loss: %4.4f | features_loss: %4.4f | style_loss: %4.4f'%(loss_D_I_o.item(), loss_D_I_g.item(), \
                         loss_G_GAN.item(), loss_G_L2.item(), loss_perceptual.item(), loss_multi.item(), loss_style.item()))
             except:
                 print("Error")
                 pass
+
+        print('\n\n')
+        print('Before the training: ')
+        print(weights_b4)
+        print('\n')
+        print('After training of first batch with batch size 1: ')
+        weights_after = model.netG.dn11[0].weight[output_channel_idx, input_channel_idx].detach().cpu()
+        print(weights_after)
+        print('\n\n')
         # model.save_networks(epoch)
         # cmd = f"gsutil -m cp -r {opt.checkpoints_dir}/{log_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
 

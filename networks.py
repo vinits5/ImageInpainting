@@ -333,7 +333,8 @@ def init_weights(net, init_type='normal', gain=0.02):
         classname = m.__class__.__name__
         if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
             if init_type == 'normal':
-                init.normal_(m.weight.data, 0.0, gain)
+                # init.normal_(m.weight.data, 0.0, gain)
+                init.ones_(m.weight.data)
             elif init_type == 'xavier':
                 init.xavier_normal_(m.weight.data, gain=gain)
             elif init_type == 'kaiming':
