@@ -135,12 +135,13 @@ def train():
             inpaint_region = data["inpaint_region"]
 
             person_cloth = data["person_cloth"]
-            plt.imsave('person_cloth.png', person_cloth.numpy()[0]*0.5+0.5)
-            plt.imsave('inpaint_region.png', inpaint_region.numpy()[0,:,:,0])
 
             data = dpp(person_cloth, inpaint_region)
             try:
                 model.set_input(data)
+                plt.imsave('input.png', model.I_i.permute(0, 2, 3, 1)[0].cpu().numpy()*0.5+0.5)
+                plt.imsave('inpaint_gt.png', model.I_g.permute(0, 2, 3, 1)[0].cpu().numpy()*0.5+0.5)
+                plt.imsave('inpaint_region.png', model.mask.permute(0, 2, 3, 1)[0,:,:,0].cpu().numpy())
                 I_g, I_o, loss_G, loss_G_L2, loss_G_GAN, loss_style, loss_perceptual, loss_multi, loss_D_I_o, loss_D_I_g = model.optimize_parameters()
                 s, p, m = metrics(I_g, I_o)
                 ssim.append(s)
