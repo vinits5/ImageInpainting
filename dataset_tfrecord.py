@@ -122,37 +122,37 @@ def _filter(data, model_inputs):
 
 def create_dataset(parse_func, filter_func, tfrecord_path, num_data, batch_size, mode, data_split, device):
     dataset = tf.data.TFRecordDataset(tfrecord_path)
-    if mode == "train":
-        dataset = dataset.take(int(data_split * num_data))
-        dataset = dataset.shuffle(2048, reshuffle_each_iteration=True)
+    # if mode == "train":
+    #     dataset = dataset.take(int(data_split * num_data))
+    #     dataset = dataset.shuffle(2048, reshuffle_each_iteration=True)
 
-    elif mode == "val":
-        dataset = dataset.skip(int(data_split * num_data))
+    # elif mode == "val":
+    #     dataset = dataset.skip(int(data_split * num_data))
 
-    elif mode == "k_worst":
-        dataset = dataset.take(data_split * num_data)
+    # elif mode == "k_worst":
+    #     dataset = dataset.take(data_split * num_data)
 
     dataset = dataset.map(
         parse_func,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
 
-    dataset = dataset.filter(filter_func)
+    # dataset = dataset.filter(filter_func)
 
-    if mode != "k_worst":
-        num_lines = sum(1 for _ in dataset)
-        # num_lines = 15000
-        dataset = dataset.repeat()
-        dataset = dataset.batch(batch_size, drop_remainder=True)
-    else:
-        num_lines = num_data  # doesn't get used anywhere
-        dataset = dataset.batch(batch_size, drop_remainder=False)
+    # if mode != "k_worst":
+    #     num_lines = sum(1 for _ in dataset)
+    num_lines = 15000
+    #     dataset = dataset.repeat()
+    #     dataset = dataset.batch(batch_size, drop_remainder=True)
+    # else:
+    #     num_lines = num_data  # doesn't get used anywhere
+    dataset = dataset.batch(batch_size, drop_remainder=False)
 
-    if device != "colab_tpu":
-        dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-        return dataset, num_lines
-    else:
-        return dataset
+    # if device != "colab_tpu":
+    #     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+    return dataset, num_lines
+    # else:
+        # return dataset
 
 def define_dataset(tfrecord_path, batch_size, train=True, test=False):
     per_replica_train_batch_size = batch_size

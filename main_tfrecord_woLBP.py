@@ -114,7 +114,7 @@ def train():
 #     summary(model.netG, (4, 256, 256))
 
     print('Train/Val with %d/%d' % (trainset_length, valset_length))
-    for epoch in range(1, 35):
+    for epoch in range(1, 2):
         print('Epoch: %d' % epoch)
         
         train_iterator = iter(trainset)
@@ -123,13 +123,15 @@ def train():
         epoch_iter = 0
         losses_G, ssim, psnr, mae = [], [], [], []
         for i in range(num_iterations):
-            # if i == 1: break
+            if i == 1: break
             epoch_iter += opt.batchSize
 
             data, model_inputs = next(train_iterator)
             inpaint_region = data["inpaint_region"]
 
             person_cloth = data["person_cloth"]
+            plt.imsave('person_cloth.png', person_cloth.numpy()[0]*0.5+0.5)
+            plt.imsave('inpaint_region.png', inpaint_region.numpy()[0,:,:,0])
 
             data = dpp(person_cloth, inpaint_region)
             try:
@@ -149,8 +151,8 @@ def train():
             except:
                 print("Error")
                 pass
-        model.save_networks(epoch)
-        cmd = f"gsutil -m cp -r {opt.checkpoints_dir}/{log_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
+        # model.save_networks(epoch)
+        # cmd = f"gsutil -m cp -r {opt.checkpoints_dir}/{log_dir} gs://vinit_helper/cloth_inpainting_gan/cloth_inpainting_local_binary_pattern/{opt.checkpoints_dir.split('/')[1]}"
 
 
 
